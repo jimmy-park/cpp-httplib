@@ -89,24 +89,29 @@ option(HTTPLIB_NO_EXCEPTIONS "Disable the use of C++ exceptions" OFF)
 # Allow for a build to require OpenSSL to pass, instead of just being optional
 option(HTTPLIB_REQUIRE_OPENSSL "Requires OpenSSL to be found & linked, or fails build." OFF)
 option(HTTPLIB_REQUIRE_ZLIB "Requires ZLIB to be found & linked, or fails build." OFF)
+
 # Allow for a build to casually enable OpenSSL/ZLIB support, but silently continue if not found.
 # Make these options so their automatic use can be specifically disabled (as needed)
 option(HTTPLIB_USE_OPENSSL_IF_AVAILABLE "Uses OpenSSL (if available) to enable HTTPS support." ON)
 option(HTTPLIB_USE_ZLIB_IF_AVAILABLE "Uses ZLIB (if available) to enable Zlib compression support." ON)
+
 # Lets you compile the program as a regular library instead of header-only
 option(HTTPLIB_COMPILE "If ON, uses a Python script to split the header into a compilable header & source file (requires Python v3)." OFF)
+
 # Lets you disable the installation (useful when fetched from another CMake project)
 option(HTTPLIB_INSTALL "Enables the installation target" ON)
 option(HTTPLIB_TEST "Enables testing and builds tests" OFF)
 option(HTTPLIB_REQUIRE_BROTLI "Requires Brotli to be found & linked, or fails build." OFF)
 option(HTTPLIB_USE_BROTLI_IF_AVAILABLE "Uses Brotli (if available) to enable Brotli decompression support." ON)
 option(HTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN "Enable feature to load system certs from the Apple Keychain." ON)
+
 # Defaults to static library
 option(BUILD_SHARED_LIBS "Build the library as a shared library instead of static. Has no effect if using header-only." OFF)
-if (BUILD_SHARED_LIBS AND WIN32 AND HTTPLIB_COMPILE)
-	# Necessary for Windows if building shared libs
-	# See https://stackoverflow.com/a/40743080
-	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+if(BUILD_SHARED_LIBS AND WIN32 AND HTTPLIB_COMPILE)
+    # Necessary for Windows if building shared libs
+    # See https://stackoverflow.com/a/40743080
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
 # Set some variables that are used in-tree and while building based on our options
@@ -116,6 +121,7 @@ set(HTTPLIB_IS_USING_CERTS_FROM_MACOSX_KEYCHAIN ${HTTPLIB_USE_CERTS_FROM_MACOSX_
 # Threads needed for <thread> on some systems, and for <pthread.h> on Linux
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
+
 # Since Cmake v3.11, Crypto & SSL became optional when not specified as COMPONENTS.
 if(HTTPLIB_REQUIRE_OPENSSL)
 	find_package(OpenSSL ${_HTTPLIB_OPENSSL_MIN_VER} COMPONENTS Crypto SSL REQUIRED)
@@ -145,6 +151,7 @@ endif()
 # Adds our cmake folder to the search path for find_package
 # This is so we can use our custom FindBrotli.cmake
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 if(HTTPLIB_REQUIRE_BROTLI)
 	find_package(Brotli COMPONENTS encoder decoder common REQUIRED)
 	set(HTTPLIB_IS_USING_BROTLI TRUE)
@@ -158,50 +165,69 @@ endif()
 include(GNUInstallDirs)
 
 if(HTTPLIB_COMPILE)
-	# Put the split script into the build dir
-	configure_file(split.py "${CMAKE_CURRENT_BINARY_DIR}/split.py"
-		COPYONLY
-	)
-	# Needs to be in the same dir as the python script
-	configure_file(httplib.h "${CMAKE_CURRENT_BINARY_DIR}/httplib.h"
-		COPYONLY
-	)
+    # Put the split script into the build dir
+    configure_file(split.py "${CMAKE_CURRENT_BINARY_DIR}/split.py"
+        COPYONLY
+    )
 
-	# Used outside of this if-else
-	set(_INTERFACE_OR_PUBLIC PUBLIC)
-	# Brings in the Python3_EXECUTABLE path we can use.
-	find_package(Python3 REQUIRED)
-	# Actually split the file
-	# Keeps the output in the build dir to not pollute the main dir
-	execute_process(COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/split.py"
-		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-		ERROR_VARIABLE _httplib_split_error
-	)
-	if(_httplib_split_error)
-		message(FATAL_ERROR "Failed when trying to split cpp-httplib with the Python script.\n${_httplib_split_error}")
-	endif()
+    # Needs to be in the same dir as the python script
+    configure_file(httplib.h "${CMAKE_CURRENT_BINARY_DIR}/httplib.h"
+        COPYONLY
+    )
 
-	# split.py puts output in "out"
-	set(_httplib_build_includedir "${CMAKE_CURRENT_BINARY_DIR}/out")
-	# This will automatically be either static or shared based on the value of BUILD_SHARED_LIBS
-	add_library(${PROJECT_NAME} "${_httplib_build_includedir}/httplib.cc")
-	target_sources(${PROJECT_NAME}
-		PUBLIC
-			$<BUILD_INTERFACE:${_httplib_build_includedir}/httplib.h>
-			$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/httplib.h>
-	)
-	set_target_properties(${PROJECT_NAME}
-		PROPERTIES
-			VERSION ${${PROJECT_NAME}_VERSION}
-			SOVERSION "${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}"
-			OUTPUT_NAME cpp-httplib
-	)
+    # Used outside of this if-else
+    set(_INTERFACE_OR_PUBLIC PUBLIC)
+
+    # Brings in the Python3_EXECUTABLE path we can use.
+    find_package(Python3 REQUIRED)
+
+    # Actually split the file
+    # Keeps the output in the build dir to not pollute the main dir
+    execute_process(COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/split.py"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        ERROR_VARIABLE _httplib_split_error
+    )
+
+    if(_httplib_split_error)
+        message(FATAL_ERROR "Failed when trying to split cpp-httplib with the Python script.\n${_httplib_split_error}")
+    endif()
+
+    # split.py puts output in "out"
+    set(_httplib_build_includedir "${CMAKE_CURRENT_BINARY_DIR}/out")
+
+    # This will automatically be either static or shared based on the value of BUILD_SHARED_LIBS
+    add_library(${PROJECT_NAME} "${_httplib_build_includedir}/httplib.cc")
+    target_sources(${PROJECT_NAME}
+        PUBLIC
+        $<BUILD_INTERFACE:${_httplib_build_includedir}/httplib.h>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/httplib.h>
+    )
+    set_target_properties(${PROJECT_NAME}
+        PROPERTIES
+        VERSION ${${PROJECT_NAME}_VERSION}
+        SOVERSION "${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}"
+        OUTPUT_NAME cpp-httplib
+    )
+
+    if(MSVC)
+        target_compile_options(${PROJECT_NAME} PRIVATE
+            /W4 /permissive-
+
+            # Turn off warnings of external libraries
+            /external:anglebrackets /external:W0 /analyze:external-
+        )
+    else()
+        target_compile_options(${PROJECT_NAME} PRIVATE
+            -Wall -Wextra -pedantic
+        )
+    endif()
 else()
-	# This is for header-only.
-	set(_INTERFACE_OR_PUBLIC INTERFACE)
-	add_library(${PROJECT_NAME} INTERFACE)
-	set(_httplib_build_includedir "${CMAKE_CURRENT_SOURCE_DIR}")
+    # This is for header-only.
+    set(_INTERFACE_OR_PUBLIC INTERFACE)
+    add_library(${PROJECT_NAME} INTERFACE)
+    set(_httplib_build_includedir "${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
+
 # Lets you address the target with httplib::httplib
 # Only useful if building in-tree, versus using it from an installation.
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
@@ -216,28 +242,31 @@ target_include_directories(${PROJECT_NAME} SYSTEM ${_INTERFACE_OR_PUBLIC}
 
 # Always require threads
 target_link_libraries(${PROJECT_NAME} ${_INTERFACE_OR_PUBLIC}
-		Threads::Threads
-		# Needed for Windows libs on Mingw, as the pragma comment(lib, "xyz") aren't triggered.
-		$<$<PLATFORM_ID:Windows>:ws2_32>
-		$<$<PLATFORM_ID:Windows>:crypt32>
-		# Needed for API from MacOS Security framework
-		"$<$<AND:$<PLATFORM_ID:Darwin>,$<BOOL:${HTTPLIB_IS_USING_OPENSSL}>,$<BOOL:${HTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN}>>:-framework CoreFoundation -framework Security>"
-		# Can't put multiple targets in a single generator expression or it bugs out.
-		$<$<BOOL:${HTTPLIB_IS_USING_BROTLI}>:Brotli::common>
-		$<$<BOOL:${HTTPLIB_IS_USING_BROTLI}>:Brotli::encoder>
-		$<$<BOOL:${HTTPLIB_IS_USING_BROTLI}>:Brotli::decoder>
-		$<$<BOOL:${HTTPLIB_IS_USING_ZLIB}>:ZLIB::ZLIB>
-		$<$<BOOL:${HTTPLIB_IS_USING_OPENSSL}>:OpenSSL::SSL>
-		$<$<BOOL:${HTTPLIB_IS_USING_OPENSSL}>:OpenSSL::Crypto>
+    Threads::Threads
+
+    # Needed for Windows libs on Mingw, as the pragma comment(lib, "xyz") aren't triggered.
+    $<$<PLATFORM_ID:Windows>:ws2_32>
+    $<$<PLATFORM_ID:Windows>:crypt32>
+
+    # Needed for API from MacOS Security framework
+    "$<$<AND:$<PLATFORM_ID:Darwin>,$<BOOL:${HTTPLIB_IS_USING_OPENSSL}>,$<BOOL:${HTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN}>>:-framework CoreFoundation -framework Security>"
+
+    # Can't put multiple targets in a single generator expression or it bugs out.
+    $<$<BOOL:${HTTPLIB_IS_USING_BROTLI}>:Brotli::common>
+    $<$<BOOL:${HTTPLIB_IS_USING_BROTLI}>:Brotli::encoder>
+    $<$<BOOL:${HTTPLIB_IS_USING_BROTLI}>:Brotli::decoder>
+    $<$<BOOL:${HTTPLIB_IS_USING_ZLIB}>:ZLIB::ZLIB>
+    $<$<BOOL:${HTTPLIB_IS_USING_OPENSSL}>:OpenSSL::SSL>
+    $<$<BOOL:${HTTPLIB_IS_USING_OPENSSL}>:OpenSSL::Crypto>
 )
 
 # Set the definitions to enable optional features
 target_compile_definitions(${PROJECT_NAME} ${_INTERFACE_OR_PUBLIC}
-	$<$<BOOL:${HTTPLIB_NO_EXCEPTIONS}>:CPPHTTPLIB_NO_EXCEPTIONS>
-	$<$<BOOL:${HTTPLIB_IS_USING_BROTLI}>:CPPHTTPLIB_BROTLI_SUPPORT>
-	$<$<BOOL:${HTTPLIB_IS_USING_ZLIB}>:CPPHTTPLIB_ZLIB_SUPPORT>
-	$<$<BOOL:${HTTPLIB_IS_USING_OPENSSL}>:CPPHTTPLIB_OPENSSL_SUPPORT>
-	$<$<AND:$<PLATFORM_ID:Darwin>,$<BOOL:${HTTPLIB_IS_USING_OPENSSL}>,$<BOOL:${HTTPLIB_IS_USING_CERTS_FROM_MACOSX_KEYCHAIN}>>:CPPHTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN>
+    $<$<BOOL:${HTTPLIB_NO_EXCEPTIONS}>:CPPHTTPLIB_NO_EXCEPTIONS>
+    $<$<BOOL:${HTTPLIB_IS_USING_BROTLI}>:CPPHTTPLIB_BROTLI_SUPPORT>
+    $<$<BOOL:${HTTPLIB_IS_USING_ZLIB}>:CPPHTTPLIB_ZLIB_SUPPORT>
+    $<$<BOOL:${HTTPLIB_IS_USING_OPENSSL}>:CPPHTTPLIB_OPENSSL_SUPPORT>
+    $<$<AND:$<PLATFORM_ID:Darwin>,$<BOOL:${HTTPLIB_IS_USING_OPENSSL}>,$<BOOL:${HTTPLIB_IS_USING_CERTS_FROM_MACOSX_KEYCHAIN}>>:CPPHTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN>
 )
 
 # CMake configuration files installation directory
@@ -254,20 +283,23 @@ configure_package_config_file("cmake/${PROJECT_NAME}Config.cmake.in"
 )
 
 if(HTTPLIB_COMPILE)
-	write_basic_package_version_file("${PROJECT_NAME}ConfigVersion.cmake"
-		# Example: if you find_package(httplib 0.5.4)
-		# then anything >= 0.5.4 and < 0.6 is accepted
-		COMPATIBILITY SameMinorVersion
-	)
+    write_basic_package_version_file("${PROJECT_NAME}ConfigVersion.cmake"
+
+        # Example: if you find_package(httplib 0.5.4)
+        # then anything >= 0.5.4 and < 0.6 is accepted
+        COMPATIBILITY SameMinorVersion
+    )
 else()
-	write_basic_package_version_file("${PROJECT_NAME}ConfigVersion.cmake"
-		# Example: if you find_package(httplib 0.5.4)
-		# then anything >= 0.5.4 and < 0.6 is accepted
-		COMPATIBILITY SameMinorVersion
-		# Tells Cmake that it's a header-only lib
-		# Mildly useful for end-users :)
-		ARCH_INDEPENDENT
-	)
+    write_basic_package_version_file("${PROJECT_NAME}ConfigVersion.cmake"
+
+        # Example: if you find_package(httplib 0.5.4)
+        # then anything >= 0.5.4 and < 0.6 is accepted
+        COMPATIBILITY SameMinorVersion
+
+        # Tells Cmake that it's a header-only lib
+        # Mildly useful for end-users :)
+        ARCH_INDEPENDENT
+    )
 endif()
 
 if(HTTPLIB_INSTALL)
