@@ -42,3 +42,4 @@ ipch
 .*
 !/.gitattributes
 !/.travis.yml
+!.github

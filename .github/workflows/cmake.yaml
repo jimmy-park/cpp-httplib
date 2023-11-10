@@ -1,0 +1,287 @@
+name: CMake
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: ${{ matrix.preset }}-${{ matrix.config }}-${{ matrix.sanitize }}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [linux-clang, linux-gcc, macos, windows]
+        config: [Debug, Release]
+        sanitize: [address, thread, undefined, leak, memory]
+        exclude:
+          - { preset: linux-gcc, sanitize: memory }
+          - { preset: macos, sanitize: leak }
+          - { preset: macos, sanitize: memory }
+          - { preset: windows, sanitize: thread }
+          - { preset: windows, sanitize: undefined }
+          - { preset: windows, sanitize: leak }
+          - { preset: windows, sanitize: memory }
+        include:
+          - preset: linux-clang
+            os: ubuntu-latest
+            generator: '"Ninja Multi-Config"'
+            cc: clang
+            cxx: clang++
+          - preset: linux-gcc
+            os: ubuntu-latest
+            generator: '"Ninja Multi-Config"'
+            cc: gcc
+            cxx: g++
+          - preset: macos
+            os: macos-latest
+            generator: Xcode
+          - preset: windows
+            os: windows-latest
+            generator: '"Visual Studio 17 2022"'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Prepare git before checkout
+        run: git config --global core.autocrlf input
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+
+      - name: Set CMake caches
+        run: |
+          echo 'set(CMAKE_INSTALL_PREFIX    install CACHE STRING "")' >> cache.cmake
+          echo 'set(HTTPLIB_COMPILE         ON      CACHE STRING "")' >> cache.cmake
+          echo 'set(HTTPLIB_TEST            ON      CACHE STRING "")' >> cache.cmake
+
+      - name: Set CMake caches for Linux
+        if: runner.os == 'Linux'
+        run: |
+          echo 'set(CMAKE_C_COMPILER        "${{ matrix.cc  }}" CACHE STRING "")' >> cache.cmake
+          echo 'set(CMAKE_CXX_COMPILER      "${{ matrix.cxx }}" CACHE STRING "")' >> cache.cmake
+
+      - name: Print CMake caches
+        run: cat cache.cmake
+
+      - name: Configure
+        run: cmake -B build -G ${{ matrix.generator }} -C cache.cmake
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config }}
+
+      - name: Test
+        id: test
+        working-directory: build
+        continue-on-error: true
+        run: ctest -C ${{ matrix.config }} --timeout 100 --schedule-random --output-on-failure
+
+      - name: Rerun failed tests
+        if: steps.test.outcome == 'failure'
+        working-directory: build
+        run: ctest -C ${{ matrix.config }} --timeout 100 --rerun-failed --output-on-failure
+
+      - name: Install
+        run: cmake --install build --config ${{ matrix.config }}
+
+  build-mobile:
+    name: ${{ matrix.preset }}-${{ matrix.config }}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [android, ios]
+        config: [Debug, Release]
+        include:
+          - preset: android
+            os: ubuntu-latest
+            generator: '"Ninja Multi-Config"'
+          - preset: ios
+            os: macos-latest
+            generator: Xcode
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+
+      - name: Set CMake caches
+        run: |
+          echo 'set(CMAKE_INSTALL_PREFIX    install CACHE STRING "")' >> cache.cmake
+          echo 'set(HTTPLIB_COMPILE         ON      CACHE STRING "")' >> cache.cmake
+
+      - name: Set CMake caches for Android
+        if: matrix.preset == 'android'
+        run: |
+          echo 'set(CMAKE_TOOLCHAIN_FILE    $ENV{ANDROID_NDK}/build/cmake/android.toolchain.cmake CACHE STRING "")' >> cache.cmake
+
+      - name: Set CMake caches for iOS
+        if: matrix.preset == 'ios'
+        run: |
+          echo 'set(CMAKE_SYSTEM_NAME       iOS)'      >> ios.toolchain.cmake
+          echo 'set(CMAKE_SYSTEM_PROCESSOR  aarch64)'  >> ios.toolchain.cmake
+          echo 'set(CMAKE_OSX_ARCHITECTURES arm64)'    >> ios.toolchain.cmake
+          echo 'set(CMAKE_OSX_SYSROOT       iphoneos)' >> ios.toolchain.cmake
+          echo 'set(CMAKE_TOOLCHAIN_FILE    ios.toolchain.cmake CACHE STRING "")' >> cache.cmake
+
+      - name: Print CMake caches
+        run: cat cache.cmake
+
+      - name: Configure
+        run: cmake -B build -G ${{ matrix.generator }} -C cache.cmake
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config }}
+
+      - name: Install
+        run: cmake --install build --config ${{ matrix.config }}
+
+  build-bsd:
+    name: ${{ matrix.preset }}-${{ matrix.arch }}-${{ matrix.config }}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [freebsd, netbsd, openbsd]
+        arch: [arm64, x86_64]
+        config: [Debug, Release]
+        exclude:
+          - { preset: netbsd, arch: arm64 }
+        include:
+          - preset: freebsd
+            version: "13.2"
+            install: sudo pkg install -y
+            pkg: cmake ninja python3
+          - preset: netbsd
+            version: "9.3"
+            install: sudo pkgin update && sudo pkgin -y install
+            pkg: cmake ninja-build python310
+          - preset: openbsd
+            version: "7.4"
+            install: sudo pkg_add -U
+            pkg: cmake ninja python3
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run BSD workflows
+        uses: cross-platform-actions/action@master
+        with:
+          operating_system: ${{ matrix.preset }}
+          architecture: ${{ matrix.arch }}
+          version: ${{ matrix.version }}
+          shell: bash
+          run: |
+            ${{ matrix.install }} ${{ matrix.pkg }}
+            cmake -B build -G "Ninja Multi-Config" \
+              -DCMAKE_INSTALL_PREFIX=install       \
+              -DHTTPLIB_COMPILE=ON                 \
+              -DHTTPLIB_TEST=ON
+            cmake --build build --config ${{ matrix.config }}
+            cd build
+            EXIT_CODE=0
+            ctest -C ${{ matrix.config }} --timeout 100 --schedule-random --output-on-failure || EXIT_CODE=$?
+            if [ $EXIT_CODE -ne 0 ]; then ctest -C ${{ matrix.config }} --timeout 100 --rerun-failed --output-on-failure; fi
+            cd ..
+            cmake --install build --config ${{ matrix.config }}
+
+  build-msys2:
+    name: msys2-${{ matrix.preset }}-${{ matrix.config }}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [CLANG32, CLANG64, MINGW32, MINGW64, UCRT64]
+        config: [Debug, Release]
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Prepare git before checkout
+        shell: powershell
+        run: git config --global core.autocrlf input
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.preset }}
+          update: true
+          pacboy: cmake:p gcc:p ninja:p
+
+      - name: Configure
+        run: >
+          cmake -B build -G "Ninja Multi-Config"
+          -DCMAKE_INSTALL_PREFIX=install
+          -DHTTPLIB_COMPILE=ON
+          -DHTTPLIB_TEST=ON
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config }}
+
+      - name: Test
+        id: test
+        working-directory: build
+        continue-on-error: true
+        run: ctest -C ${{ matrix.config }} --timeout 100 --schedule-random --output-on-failure
+
+      - name: Rerun failed tests
+        if: steps.test.outcome == 'failure'
+        working-directory: build
+        run: ctest -C ${{ matrix.config }} --timeout 100 --rerun-failed --output-on-failure
+
+      - name: Install
+        run: cmake --install build --config ${{ matrix.config }}
+
+  build-cygwin:
+    name: cygwin-${{ matrix.config }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release]
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -o igncr -eo pipefail '{0}'
+    steps:
+      - name: Prepare git before checkout
+        shell: powershell
+        run: git config --global core.autocrlf input
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        uses: cygwin/cygwin-install-action@v4
+        with:
+          packages: cmake gcc-g++ ninja python3 libbrotli-devel libssl-devel zlib-devel
+
+      - name: Configure
+        run: >
+          cmake -B build -G "Ninja Multi-Config"
+          -DCMAKE_INSTALL_PREFIX=install
+          -DHTTPLIB_COMPILE=ON
+          -DHTTPLIB_TEST=ON
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config }}
+
+      - name: Test
+        id: test
+        working-directory: build
+        continue-on-error: true
+        run: ctest -C ${{ matrix.config }} --timeout 100 --schedule-random --output-on-failure
+
+      - name: Rerun failed tests
+        if: steps.test.outcome == 'failure'
+        working-directory: build
+        run: ctest -C ${{ matrix.config }} --timeout 100 --rerun-failed --output-on-failure
+
+      - name: Install
+        run: cmake --install build --config ${{ matrix.config }}
