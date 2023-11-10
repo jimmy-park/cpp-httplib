@@ -1,7 +1,9 @@
 cpp-httplib
 ===========
 
-[![](https://github.com/yhirose/cpp-httplib/workflows/test/badge.svg)](https://github.com/yhirose/cpp-httplib/actions)
+[![test](https://github.com/yhirose/cpp-httplib/workflows/test/badge.svg)](https://github.com/yhirose/cpp-httplib/actions/workflows/test.yaml)
+[![CIFuzz](https://github.com/yhirose/cpp-httplib/actions/workflows/cifuzz.yaml/badge.svg)](https://github.com/yhirose/cpp-httplib/actions/workflows/cifuzz.yaml)
+[![CMake](https://github.com/yhirose/cpp-httplib/actions/workflows/cmake.yaml/badge.svg)](https://github.com/yhirose/cpp-httplib/actions/workflows/cmake.yaml)
 
 A C++11 single-file header-only cross platform HTTP/HTTPS library.
 

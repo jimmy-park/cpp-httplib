@@ -35,3 +35,4 @@ ipch
 *.dSYM
 .*
 !/.travis.yml
+!.github
