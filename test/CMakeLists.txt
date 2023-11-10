@@ -29,7 +29,15 @@ find_package(CURL REQUIRED)
 add_executable(httplib-test test.cc)
 target_compile_options(httplib-test PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/utf-8;/bigobj>")
 target_link_libraries(httplib-test PRIVATE httplib GTest::gtest_main CURL::libcurl)
-gtest_discover_tests(httplib-test)
+
+if(MSVC)
+    cmake_path(GET CMAKE_CXX_COMPILER PARENT_PATH VS_PATH)
+    gtest_discover_tests(httplib-test
+        PROPERTIES ENVIRONMENT PATH=${VS_PATH}
+    )
+else()
+    gtest_discover_tests(httplib-test)
+endif()
 
 file(
     COPY www www2 www3 ca-bundle.crt image.jpg
