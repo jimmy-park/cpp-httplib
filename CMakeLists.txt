@@ -164,6 +164,24 @@ endif()
 # like CMAKE_INSTALL_INCLUDEDIR or CMAKE_INSTALL_DATADIR
 include(GNUInstallDirs)
 
+if(MSVC)
+    if("${HTTPLIB_SANITIZE}" STREQUAL "address")
+        string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+        string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+        add_compile_options(/fsanitize=address /Zi)
+        add_link_options(
+            /INCREMENTAL:NO
+            $<$<CONFIG:Release>:/DEBUG>
+        )
+    endif()
+else()
+    if(NOT "${HTTPLIB_SANITIZE}" STREQUAL "")
+        add_compile_options(-g -fno-omit-frame-pointer)
+        add_compile_options(-fsanitize=${HTTPLIB_SANITIZE})
+        add_link_options(-fsanitize=${HTTPLIB_SANITIZE})
+    endif()
+endif()
+
 if(HTTPLIB_COMPILE)
     # Put the split script into the build dir
     configure_file(split.py "${CMAKE_CURRENT_BINARY_DIR}/split.py"
