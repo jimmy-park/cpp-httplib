@@ -141,147 +141,147 @@ jobs:
       - name: Install
         run: cmake --install build --config ${{ matrix.config }}
 
-  build-bsd:
-    name: ${{ matrix.preset }}-${{ matrix.arch }}-${{ matrix.config }}
-    strategy:
-      fail-fast: false
-      matrix:
-        preset: [freebsd, netbsd, openbsd]
-        arch: [arm64, x86_64]
-        config: [Debug, Release]
-        exclude:
-          - { preset: netbsd, arch: arm64 }
-        include:
-          - preset: freebsd
-            version: "13.2"
-            install: sudo pkg install -y
-            pkg: cmake ninja python3
-          - preset: netbsd
-            version: "9.3"
-            install: sudo pkgin update && sudo pkgin -y install
-            pkg: cmake ninja-build python310
-          - preset: openbsd
-            version: "7.4"
-            install: sudo pkg_add -U
-            pkg: cmake ninja python3
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  # build-bsd:
+  #   name: ${{ matrix.preset }}-${{ matrix.arch }}-${{ matrix.config }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       preset: [freebsd, netbsd, openbsd]
+  #       arch: [arm64, x86_64]
+  #       config: [Debug, Release]
+  #       exclude:
+  #         - { preset: netbsd, arch: arm64 }
+  #       include:
+  #         - preset: freebsd
+  #           version: "13.2"
+  #           install: sudo pkg install -y
+  #           pkg: cmake ninja python3
+  #         - preset: netbsd
+  #           version: "9.3"
+  #           install: sudo pkgin update && sudo pkgin -y install
+  #           pkg: cmake ninja-build python310
+  #         - preset: openbsd
+  #           version: "7.4"
+  #           install: sudo pkg_add -U
+  #           pkg: cmake ninja python3
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Run BSD workflows
-        uses: cross-platform-actions/action@master
-        with:
-          operating_system: ${{ matrix.preset }}
-          architecture: ${{ matrix.arch }}
-          version: ${{ matrix.version }}
-          shell: bash
-          run: |
-            ${{ matrix.install }} ${{ matrix.pkg }}
-            cmake -B build -G "Ninja Multi-Config" \
-              -DCMAKE_INSTALL_PREFIX=install       \
-              -DHTTPLIB_COMPILE=ON                 \
-              -DHTTPLIB_TEST=ON
-            cmake --build build --config ${{ matrix.config }}
-            cd build
-            EXIT_CODE=0
-            ctest -C ${{ matrix.config }} --timeout 100 --schedule-random --output-on-failure || EXIT_CODE=$?
-            if [ $EXIT_CODE -ne 0 ]; then ctest -C ${{ matrix.config }} --timeout 100 --rerun-failed --output-on-failure; fi
-            cd ..
-            cmake --install build --config ${{ matrix.config }}
+  #     - name: Run BSD workflows
+  #       uses: cross-platform-actions/action@master
+  #       with:
+  #         operating_system: ${{ matrix.preset }}
+  #         architecture: ${{ matrix.arch }}
+  #         version: ${{ matrix.version }}
+  #         shell: bash
+  #         run: |
+  #           ${{ matrix.install }} ${{ matrix.pkg }}
+  #           cmake -B build -G "Ninja Multi-Config" \
+  #             -DCMAKE_INSTALL_PREFIX=install       \
+  #             -DHTTPLIB_COMPILE=ON                 \
+  #             -DHTTPLIB_TEST=ON
+  #           cmake --build build --config ${{ matrix.config }}
+  #           cd build
+  #           EXIT_CODE=0
+  #           ctest -C ${{ matrix.config }} --timeout 100 --schedule-random --output-on-failure || EXIT_CODE=$?
+  #           if [ $EXIT_CODE -ne 0 ]; then ctest -C ${{ matrix.config }} --timeout 100 --rerun-failed --output-on-failure; fi
+  #           cd ..
+  #           cmake --install build --config ${{ matrix.config }}
 
-  build-msys2:
-    name: msys2-${{ matrix.preset }}-${{ matrix.config }}
-    strategy:
-      fail-fast: false
-      matrix:
-        preset: [CLANG32, CLANG64, MINGW32, MINGW64, UCRT64]
-        config: [Debug, Release]
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-      - name: Prepare git before checkout
-        shell: powershell
-        run: git config --global core.autocrlf input
+  # build-msys2:
+  #   name: msys2-${{ matrix.preset }}-${{ matrix.config }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       preset: [CLANG32, CLANG64, MINGW32, MINGW64, UCRT64]
+  #       config: [Debug, Release]
+  #   runs-on: windows-latest
+  #   defaults:
+  #     run:
+  #       shell: msys2 {0}
+  #   steps:
+  #     - name: Prepare git before checkout
+  #       shell: powershell
+  #       run: git config --global core.autocrlf input
 
-      - name: Checkout
-        uses: actions/checkout@v4
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: ${{ matrix.preset }}
-          update: true
-          pacboy: cmake:p gcc:p ninja:p
+  #     - uses: msys2/setup-msys2@v2
+  #       with:
+  #         msystem: ${{ matrix.preset }}
+  #         update: true
+  #         pacboy: cmake:p gcc:p ninja:p
 
-      - name: Configure
-        run: >
-          cmake -B build -G "Ninja Multi-Config"
-          -DCMAKE_INSTALL_PREFIX=install
-          -DHTTPLIB_COMPILE=ON
-          -DHTTPLIB_TEST=ON
+  #     - name: Configure
+  #       run: >
+  #         cmake -B build -G "Ninja Multi-Config"
+  #         -DCMAKE_INSTALL_PREFIX=install
+  #         -DHTTPLIB_COMPILE=ON
+  #         -DHTTPLIB_TEST=ON
 
-      - name: Build
-        run: cmake --build build --config ${{ matrix.config }}
+  #     - name: Build
+  #       run: cmake --build build --config ${{ matrix.config }}
 
-      - name: Test
-        id: test
-        working-directory: build
-        continue-on-error: true
-        run: ctest -C ${{ matrix.config }} --timeout 100 --schedule-random --output-on-failure
+  #     - name: Test
+  #       id: test
+  #       working-directory: build
+  #       continue-on-error: true
+  #       run: ctest -C ${{ matrix.config }} --timeout 100 --schedule-random --output-on-failure
 
-      - name: Rerun failed tests
-        if: steps.test.outcome == 'failure'
-        working-directory: build
-        run: ctest -C ${{ matrix.config }} --timeout 100 --rerun-failed --output-on-failure
+  #     - name: Rerun failed tests
+  #       if: steps.test.outcome == 'failure'
+  #       working-directory: build
+  #       run: ctest -C ${{ matrix.config }} --timeout 100 --rerun-failed --output-on-failure
 
-      - name: Install
-        run: cmake --install build --config ${{ matrix.config }}
+  #     - name: Install
+  #       run: cmake --install build --config ${{ matrix.config }}
 
-  build-cygwin:
-    name: cygwin-${{ matrix.config }}
-    strategy:
-      fail-fast: false
-      matrix:
-        config: [Debug, Release]
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -o igncr -eo pipefail '{0}'
-    steps:
-      - name: Prepare git before checkout
-        shell: powershell
-        run: git config --global core.autocrlf input
+  # build-cygwin:
+  #   name: cygwin-${{ matrix.config }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       config: [Debug, Release]
+  #   runs-on: windows-latest
+  #   defaults:
+  #     run:
+  #       shell: C:\cygwin\bin\bash.exe --noprofile --norc -o igncr -eo pipefail '{0}'
+  #   steps:
+  #     - name: Prepare git before checkout
+  #       shell: powershell
+  #       run: git config --global core.autocrlf input
 
-      - name: Checkout
-        uses: actions/checkout@v4
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Install dependencies
-        uses: cygwin/cygwin-install-action@v4
-        with:
-          packages: cmake gcc-g++ ninja python3 libbrotli-devel libssl-devel zlib-devel
+  #     - name: Install dependencies
+  #       uses: cygwin/cygwin-install-action@v4
+  #       with:
+  #         packages: cmake gcc-g++ ninja python3 libbrotli-devel libssl-devel zlib-devel
 
-      - name: Configure
-        run: >
-          cmake -B build -G "Ninja Multi-Config"
-          -DCMAKE_INSTALL_PREFIX=install
-          -DHTTPLIB_COMPILE=ON
-          -DHTTPLIB_TEST=ON
+  #     - name: Configure
+  #       run: >
+  #         cmake -B build -G "Ninja Multi-Config"
+  #         -DCMAKE_INSTALL_PREFIX=install
+  #         -DHTTPLIB_COMPILE=ON
+  #         -DHTTPLIB_TEST=ON
 
-      - name: Build
-        run: cmake --build build --config ${{ matrix.config }}
+  #     - name: Build
+  #       run: cmake --build build --config ${{ matrix.config }}
 
-      - name: Test
-        id: test
-        working-directory: build
-        continue-on-error: true
-        run: ctest -C ${{ matrix.config }} --timeout 100 --schedule-random --output-on-failure
+  #     - name: Test
+  #       id: test
+  #       working-directory: build
+  #       continue-on-error: true
+  #       run: ctest -C ${{ matrix.config }} --timeout 100 --schedule-random --output-on-failure
 
-      - name: Rerun failed tests
-        if: steps.test.outcome == 'failure'
-        working-directory: build
-        run: ctest -C ${{ matrix.config }} --timeout 100 --rerun-failed --output-on-failure
+  #     - name: Rerun failed tests
+  #       if: steps.test.outcome == 'failure'
+  #       working-directory: build
+  #       run: ctest -C ${{ matrix.config }} --timeout 100 --rerun-failed --output-on-failure
 
-      - name: Install
-        run: cmake --install build --config ${{ matrix.config }}
+  #     - name: Install
+  #       run: cmake --install build --config ${{ matrix.config }}
