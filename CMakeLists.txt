@@ -108,6 +108,12 @@ option(HTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN "Enable feature to load system cer
 # Defaults to static library
 option(BUILD_SHARED_LIBS "Build the library as a shared library instead of static. Has no effect if using header-only." OFF)
 
+option(HTTPLIB_USE_STATIC_ANALYZER "" OFF)
+
+if(HTTPLIB_USE_STATIC_ANALYZER)
+    include(cmake/UseStaticAnalyzer.cmake)
+endif()
+
 if(BUILD_SHARED_LIBS AND WIN32 AND HTTPLIB_COMPILE)
     # Necessary for Windows if building shared libs
     # See https://stackoverflow.com/a/40743080
@@ -226,19 +232,6 @@ if(HTTPLIB_COMPILE)
         SOVERSION "${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}"
         OUTPUT_NAME cpp-httplib
     )
-
-    if(MSVC)
-        target_compile_options(${PROJECT_NAME} PRIVATE
-            /W4 /permissive-
-
-            # Turn off warnings of external libraries
-            /external:anglebrackets /external:W0 /analyze:external-
-        )
-    else()
-        target_compile_options(${PROJECT_NAME} PRIVATE
-            -Wall -Wextra -pedantic
-        )
-    endif()
 else()
     # This is for header-only.
     set(_INTERFACE_OR_PUBLIC INTERFACE)

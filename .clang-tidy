@@ -1,0 +1,1 @@
+Checks: "concurrency-*, performance-*, portability-*, bugprone-*, -bugprone-easily-swappable-parameters"
