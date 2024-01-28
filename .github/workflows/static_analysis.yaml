@@ -1,0 +1,58 @@
+name: Static Analysis
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: ${{ matrix.preset }}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [linux-clang, linux-gcc, macos, windows]
+        include:
+          - preset: linux-clang
+            os: ubuntu-latest
+            generator: '"Ninja Multi-Config"'
+            cc: clang
+            cxx: clang++
+          - preset: linux-gcc
+            os: ubuntu-latest
+            generator: '"Ninja Multi-Config"'
+            cc: gcc
+            cxx: g++
+          - preset: macos
+            os: macos-latest
+            generator: Xcode
+          - preset: windows
+            os: windows-latest
+            generator: '"Visual Studio 17 2022"'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cppcheck clang-tidy
+      - name: Install dependencies on macOS
+        if: runner.os == 'macOS'
+        run: brew install cppcheck
+
+      - name: Set CMake caches
+        run: |
+          echo 'set(HTTPLIB_COMPILE             ON CACHE STRING "")' >> cache.cmake
+          echo 'set(HTTPLIB_USE_STATIC_ANALYZER ON CACHE STRING "")' >> cache.cmake
+
+      - name: Set CMake caches for Linux
+        if: runner.os == 'Linux'
+        run: |
+          echo 'set(CMAKE_C_COMPILER   "${{ matrix.cc  }}" CACHE STRING "")' >> cache.cmake
+          echo 'set(CMAKE_CXX_COMPILER "${{ matrix.cxx }}" CACHE STRING "")' >> cache.cmake
+
+      - name: Configure
+        run: cmake -B build -G ${{ matrix.generator }} -C cache.cmake
+
+      - name: Build
+        run: cmake --build build
