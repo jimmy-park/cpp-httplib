@@ -1421,6 +1421,7 @@ public:
 
   void set_keep_alive(bool on);
   void set_follow_location(bool on);
+  void set_redirect_count(std::size_t count);
 
   void set_url_encode(bool on);
 
@@ -1529,6 +1530,7 @@ protected:
 
   bool keep_alive_ = false;
   bool follow_location_ = false;
+  std::size_t redirect_count_ = CPPHTTPLIB_REDIRECT_MAX_COUNT;
 
   bool url_encode_ = true;
 
@@ -1847,6 +1849,7 @@ public:
 
   void set_keep_alive(bool on);
   void set_follow_location(bool on);
+  void set_redirect_count(std::size_t count);
 
   void set_url_encode(bool on);
 
@@ -7773,6 +7776,7 @@ inline Result ClientImpl::send_with_content_provider(
   req.headers = headers;
   req.path = path;
   req.progress = progress;
+  req.redirect_count_ = redirect_count_;
 
   auto error = Error::Success;
 
@@ -7950,6 +7954,7 @@ inline Result ClientImpl::Get(const std::string &path, const Headers &headers,
   req.path = path;
   req.headers = headers;
   req.progress = std::move(progress);
+  req.redirect_count_ = redirect_count_;
 
   return send_(std::move(req));
 }
@@ -8015,6 +8020,7 @@ inline Result ClientImpl::Get(const std::string &path, const Headers &headers,
         return content_receiver(data, data_length);
       };
   req.progress = std::move(progress);
+  req.redirect_count_ = redirect_count_;
 
   return send_(std::move(req));
 }
@@ -8060,6 +8066,7 @@ inline Result ClientImpl::Head(const std::string &path,
   req.method = "HEAD";
   req.headers = headers;
   req.path = path;
+  req.redirect_count_ = redirect_count_;
 
   return send_(std::move(req));
 }
@@ -8477,6 +8484,7 @@ inline Result ClientImpl::Delete(const std::string &path,
   req.headers = headers;
   req.path = path;
   req.progress = progress;
+  req.redirect_count_ = redirect_count_;
 
   if (!content_type.empty()) { req.set_header("Content-Type", content_type); }
   req.body.assign(body, content_length);
@@ -8524,6 +8532,7 @@ inline Result ClientImpl::Options(const std::string &path,
   req.method = "OPTIONS";
   req.headers = headers;
   req.path = path;
+  req.redirect_count_ = redirect_count_;
 
   return send_(std::move(req));
 }
@@ -8598,6 +8607,10 @@ inline void ClientImpl::set_digest_auth(const std::string &username,
 inline void ClientImpl::set_keep_alive(bool on) { keep_alive_ = on; }
 
 inline void ClientImpl::set_follow_location(bool on) { follow_location_ = on; }
+
+inline void ClientImpl::set_redirect_count(std::size_t count) {
+  redirect_count_ = count;
+}
 
 inline void ClientImpl::set_url_encode(bool on) { url_encode_ = on; }
 
@@ -9989,6 +10002,9 @@ inline void Client::set_digest_auth(const std::string &username,
 inline void Client::set_keep_alive(bool on) { cli_->set_keep_alive(on); }
 inline void Client::set_follow_location(bool on) {
   cli_->set_follow_location(on);
+}
+inline void Client::set_redirect_count(std::size_t count) {
+  cli_->set_redirect_count(count);
 }
 
 inline void Client::set_url_encode(bool on) { cli_->set_url_encode(on); }

@@ -1554,7 +1554,8 @@ TEST(TooManyRedirectTest, Redirect_Online) {
 #endif
 
   cli.set_follow_location(true);
-  auto res = cli.Get("/httpbin/redirect/21");
+  cli.set_redirect_count(9);
+  auto res = cli.Get("/httpbin/redirect/10");
   ASSERT_TRUE(!res);
   EXPECT_EQ(Error::ExceedRedirectCount, res.error());
 }
