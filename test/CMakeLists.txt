@@ -24,7 +24,28 @@ else()
     FetchContent_MakeAvailable(gtest)
 endif()
 
-find_package(CURL REQUIRED)
+find_package(CURL)
+
+if(NOT CURL_FOUND)
+    include(FetchContent)
+
+    set(BUILD_CURL_EXE OFF)
+    set(CURL_DISABLE_NTLM ON)
+    set(CURL_DISABLE_TESTS ON)
+    set(CURL_USE_LIBPSL OFF)
+    set(CURL_USE_LIBSSH2 OFF)
+    set(ENABLE_IPV6 OFF)
+    set(ENABLE_MANUAL OFF)
+    set(HTTP_ONLY ON)
+    set(USE_LIBIDN2 OFF)
+    set(USE_MANUAL OFF)
+
+    FetchContent_Declare(
+        CURL
+        URL https://github.com/curl/curl/archive/master.tar.gz
+    )
+    FetchContent_MakeAvailable(CURL)
+endif()
 
 add_executable(httplib-test test.cc)
 target_compile_options(httplib-test PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/utf-8;/bigobj>")
