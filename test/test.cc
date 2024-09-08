@@ -7729,7 +7729,7 @@ TEST(Expect100ContinueTest, ServerClosesConnection) {
         curl_easy_init(), &curl_easy_cleanup};
     ASSERT_NE(curl, nullptr);
 
-    curl_easy_setopt(curl.get(), CURLOPT_URL, HOST);
+    curl_easy_setopt(curl.get(), CURLOPT_URL, "http://localhost");
     curl_easy_setopt(curl.get(), CURLOPT_PORT, PORT);
     curl_easy_setopt(curl.get(), CURLOPT_POST, 1L);
     auto list = std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)>{
