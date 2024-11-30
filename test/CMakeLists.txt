@@ -24,7 +24,28 @@ else()
     FetchContent_MakeAvailable(gtest)
 endif()
 
-find_package(CURL REQUIRED)
+include(FetchContent)
+
+set(BUILD_CURL_EXE OFF)
+set(BUILD_LIBCURL_DOCS OFF)
+set(CURL_DISABLE_INSTALL ON)
+set(CURL_DISABLE_NTLM ON)
+set(CURL_DISABLE_TESTS ON)
+set(CURL_ENABLE_EXPORT_TARGET OFF)
+set(CURL_USE_LIBPSL OFF)
+set(CURL_USE_LIBSSH2 OFF)
+set(ENABLE_IPV6 OFF)
+set(ENABLE_CURL_MANUAL OFF)
+set(HTTP_ONLY ON)
+set(SHARE_LIB_OBJECT OFF)
+set(USE_LIBIDN2 OFF)
+set(USE_MANUAL OFF)
+
+FetchContent_Declare(
+    curl
+    URL https://github.com/curl/curl/archive/curl-8_11_0.tar.gz
+)
+FetchContent_MakeAvailable(curl)
 
 add_executable(httplib-test test.cc)
 target_compile_options(httplib-test PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/utf-8;/bigobj>")
@@ -45,11 +66,12 @@ file(
 )
 
 if(HTTPLIB_IS_USING_OPENSSL)
-    if (OPENSSL_VERSION VERSION_LESS "3.2.0")
-      set(OPENSSL_X509_FLAG "-x509")
+    if(OPENSSL_VERSION VERSION_LESS "3.2.0")
+        set(OPENSSL_X509_FLAG "-x509")
     else()
-      set(OPENSSL_X509_FLAG "-x509v1")
+        set(OPENSSL_X509_FLAG "-x509v1")
     endif()
+
     find_program(OPENSSL_COMMAND
         NAMES openssl
         PATHS ${OPENSSL_INCLUDE_DIR}/../bin
